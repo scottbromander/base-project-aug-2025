@@ -1,11 +1,5 @@
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'appuser') THEN
-    CREATE ROLE appuser WITH LOGIN PASSWORD 'apppass';
-  END IF;
+-- Create application role (login user)
+CREATE ROLE appuser WITH LOGIN PASSWORD 'apppass';
 
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'appdb') THEN
-    CREATE DATABASE appdb OWNER appuser;
-  END IF;
-END
-$$;
+-- Create application database owned by that role
+CREATE DATABASE appdb OWNER appuser;
