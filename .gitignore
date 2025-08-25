@@ -1,0 +1,74 @@
+# ---- OS & Editor junk ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- Environment files (keep only examples) ----
+.env
+.env.*
+!.env.example
+
+# ---- Python / FastAPI ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.coverage
+coverage.xml
+htmlcov/
+.cache/
+.ruff_cache/
+.ipynb_checkpoints/
+# local sqlite dev DBs (if ever used)
+*.sqlite3
+*.db
+# logs
+*.log
+
+# ---- Alembic ----
+# (Keep your alembic/versions/ in git; nothing to ignore specifically here)
+
+# ---- Node / Vite (frontend) ----
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+# JS/TS coverage
+coverage/
+.nyc_output/
+# package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm/
+
+# ---- Docker / Compose ----
+docker-compose.override.yml
+*.pid
+
+# ---- Misc / temp ----
+*.local
+*.tmp
+*.bak
+AppleDouble
+.LSOverride
+Icon?
