@@ -4,40 +4,41 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      # Superuser for container init
+      # Superuser for container init (used by ensure-db)
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespass}
     ports:
-      - "55432:5432" # host:container
+      - '55432:5432' # host:container (avoid local PG clashes)
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # First-boot initializer (safe + optional; see db/init.sql)
+      # First-boot initializer (safe on a fresh volume)
+      # db/init.sql should contain ONLY:
+      #   CREATE ROLE appuser WITH LOGIN PASSWORD 'apppass';
+      #   CREATE DATABASE appdb OWNER appuser;
       - ./db/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
       interval: 3s
       timeout: 3s
       retries: 20
 
-  # Idempotent safety net: creates role/db if they don't exist (covers old volumes)
+  # Idempotent safety net: ensures role/db & password every boot (handles reused volumes)
   ensure-db:
     image: postgres:16-alpine
     depends_on:
       db:
         condition: service_healthy
     environment:
-      # must match db.POSTGRES_PASSWORD (or its default)
       PGPASSWORD: ${POSTGRES_PASSWORD:-postgrespass}
-    entrypoint: ["/bin/sh", "-lc"]
+    entrypoint: ['/bin/sh', '-lc']
     command: |
       set -e
-      # extra safety: wait until psql works
       until pg_isready -h db -U postgres -d postgres >/dev/null 2>&1; do sleep 1; done
-
-      # create role if missing
+      # ensure role exists
       psql -h db -U postgres -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='appuser'" | grep -q 1 \
-        || psql -h db -U postgres -d postgres -c "CREATE ROLE appuser WITH LOGIN PASSWORD 'apppass';"
-
-      # create database if missing
+        || psql -h db -U postgres -d postgres -c "CREATE ROLE appuser WITH LOGIN;"
+      # enforce known password (idempotent)
+      psql -h db -U postgres -d postgres -c "ALTER ROLE appuser WITH PASSWORD 'apppass';"
+      # ensure database exists
       psql -h db -U postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='appdb'" | grep -q 1 \
         || psql -h db -U postgres -d postgres -c "CREATE DATABASE appdb OWNER appuser;"
 
@@ -45,7 +46,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file: .env
     environment:
       DATABASE_URL: postgresql+psycopg://appuser:apppass@db:5432/appdb
       CORS_ORIGINS: http://localhost:5173
@@ -53,7 +53,7 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - '8000:8000'
     depends_on:
       db:
         condition: service_healthy
@@ -64,15 +64,23 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: dev # ensure your Dockerfile has a "dev" stage
+      target: dev # ensure your frontend/Dockerfile has a "dev" stage
     environment:
       VITE_API_URL: http://localhost:8000
+      # optional: avoid rollup native binary issues across platforms
+      ROLLUP_SKIP_NODEJS_NATIVE: 'true'
     volumes:
       - ./frontend:/usr/src/app
+      - web_node_modules:/usr/src/app/node_modules # container-only deps (decoupled from host)
     ports:
-      - "5173:5173"
+      - '5173:5173'
+    # First run will populate the node_modules volume; later runs skip the install
+    command: >
+      sh -lc "[ -d node_modules ] || npm ci;
+      npm run dev -- --host 0.0.0.0"
     depends_on:
       - api
 
 volumes:
   pgdata:
+  web_node_modules:
